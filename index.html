@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>所見ペースメーカー ワンタップ進捗</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Zen Maru Gothic"', 'Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Soft pulse animation for celebration focus */
+        @keyframes gentle-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .animate-gentle { animation: gentle-bounce 2s infinite ease-in-out; }
+    </style>
+</head>
+<body class="bg-amber-50/40 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen flex flex-col justify-between transition-colors duration-200">
+
+    <!-- Header -->
+    <header class="px-4 py-3 max-w-xl mx-auto w-full flex justify-between items-center border-b border-amber-200/60 dark:border-slate-800">
+        <div class="flex items-center gap-2">
+            <div class="p-2 bg-amber-400 text-amber-950 rounded-xl shadow-sm">
+                <i data-lucide="zap" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="font-black text-base leading-tight">所見ペースメーカー</h1>
+                <p class="text-[10px] text-slate-500 dark:text-slate-400">スプレッドシートの横に置くだけ！</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button onclick="openSettingsModal()" class="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 bg-white dark:bg-slate-800 shadow-sm transition">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+            </button>
+            <button onclick="toggleDarkMode()" class="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 bg-white dark:bg-slate-800 shadow-sm transition">
+                <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+                <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-xl mx-auto w-full px-4 py-6 space-y-6 my-auto">
+
+        <!-- Rank Title Badge -->
+        <div class="text-center space-y-1">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 rounded-full font-black text-xs shadow-sm animate-gentle">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
+                <span id="rankBadgeText">称号: ロケットスタート 🚀</span>
+            </div>
+            <h2 class="text-3xl sm:text-4xl font-black tracking-tight" id="mainRemainingText">
+                あと <span class="text-amber-600 dark:text-amber-400 font-extrabold" id="remainingCharsCount">4,580</span> 文字！
+            </h2>
+        </div>
+
+        <!-- Main Character Input (Super Prominent) -->
+        <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl border-2 border-amber-200/80 dark:border-slate-700 text-center space-y-3 relative overflow-hidden">
+            <label for="currentInputCount" class="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                現在の合計入力文字数 (スプレッドシートの合算)
+            </label>
+            
+            <div class="flex items-center justify-center gap-2 max-w-xs mx-auto">
+                <input type="number" id="currentInputCount" min="0" max="20000" step="10" placeholder="0" oninput="onInputChanged()"
+                    class="w-full text-center text-4xl sm:text-5xl font-black font-mono text-emerald-600 dark:text-emerald-400 bg-amber-50/50 dark:bg-slate-900/50 border-2 border-amber-300 dark:border-slate-600 rounded-2xl py-3 px-2 focus:outline-none focus:ring-4 focus:ring-amber-400/30 transition shadow-inner">
+                <span class="text-lg font-black text-slate-400">文字</span>
+            </div>
+
+            <!-- Single Overall Progress Bar -->
+            <div class="space-y-1.5 pt-2">
+                <div class="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400 px-1">
+                    <span id="progressCharsDetail">420 / 5,000 字</span>
+                    <span id="progressPercentDetail" class="text-emerald-600 dark:text-emerald-400 font-extrabold">8.4%</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-700 h-5 rounded-full overflow-hidden p-1 shadow-inner">
+                    <div id="progressBar" class="bg-gradient-to-r from-amber-400 via-emerald-400 to-teal-400 h-full rounded-full transition-all duration-500" style="width: 8.4%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today's Pace & Target Banner -->
+        <div class="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-3xl p-5 shadow-lg space-y-3 relative overflow-hidden">
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-[11px] font-bold text-emerald-100 uppercase tracking-wider">今日の目標ペース</span>
+                    <h3 class="text-2xl font-black mt-0.5" id="todayPaceTargetText">
+                        今日はあと <span class="text-amber-300 text-3xl">382</span> 文字！
+                    </h3>
+                </div>
+                <div class="text-right bg-black/15 px-3 py-1.5 rounded-xl backdrop-blur-sm">
+                    <div class="text-[10px] text-emerald-100">提出期限 11/30 まで</div>
+                    <div class="text-xs font-bold font-mono" id="weekdayCountText">平日 あと 12 日</div>
+                </div>
+            </div>
+
+            <div class="bg-white/10 rounded-2xl p-3 backdrop-blur-md text-xs flex items-center justify-between font-medium">
+                <span class="flex items-center gap-1.5">
+                    <i data-lucide="target" class="w-4 h-4 text-amber-300"></i>
+                    <span id="dailyQuotaText">1日あたりの目標: 417 文字 (約1.7人分)</span>
+                </span>
+                <span class="text-[10px] text-emerald-200">※土日を除いて自動計算</span>
+            </div>
+        </div>
+
+        <!-- Motivation & Reward Milestone Box -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-amber-200/60 dark:border-slate-700 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-xl shrink-0">
+                    <i data-lucide="gift" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] font-bold text-slate-400">次のごほうびマイルストーン</div>
+                    <div class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100" id="nextRewardTitle">
+                        25%達成：お気に入りカフェでブレイク☕️
+                    </div>
+                </div>
+            </div>
+            <div class="text-right shrink-0">
+                <span class="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono" id="nextRewardCountdown">
+                    あと 830 字
+                </span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 text-xs text-slate-400 dark:text-slate-500">
+        先生お疲れ様です！無理せずマイペースに進めましょう✨
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200 p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-amber-200 dark:border-slate-700">
+            <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+                <h3 class="font-black text-base flex items-center gap-2">
+                    <i data-lucide="sliders" class="w-4 h-4 text-amber-500"></i> 設定変更
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs font-bold">
+                <div>
+                    <label class="block text-slate-500 dark:text-slate-400 mb-1">児童数 (人)</label>
+                    <input type="number" id="settingStudentCount" min="1" max="50" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-slate-500 dark:text-slate-400 mb-1">1人あたり目標 (字)</label>
+                    <input type="number" id="settingTargetPerStudent" min="50" max="1000" step="10" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl">
+                </div>
+                <div>
+                    <label class="block text-slate-500 dark:text-slate-400 mb-1">締め切り日 (平日計算)</label>
+                    <input type="date" id="settingDeadline" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl">キャンセル</button>
+                <button onclick="saveSettings()" class="px-5 py-2 text-xs font-black bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-xl shadow-md transition">保存する</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_CONFIG = {
+            studentCount: 20,
+            targetPerStudent: 250,
+            deadline: '2026-11-30'
+        };
+
+        const RANKS = [
+            { thresholdRatio: 0, title: "ロケットスタート 🚀" },
+            { thresholdRatio: 0.1, title: "順調な一歩 🌱" },
+            { thresholdRatio: 0.25, title: "キーボード流星群 💫" },
+            { thresholdRatio: 0.5, title: "折り返し地点！ 🏃‍♂️" },
+            { thresholdRatio: 0.75, title: "ラストスパート 🔥" },
+            { thresholdRatio: 0.9, title: "ウイニングラン 🏆" },
+            { thresholdRatio: 1.0, title: "全件達成！定時退勤の神 👑" }
+        ];
+
+        const REWARDS = [
+            { ratio: 0.15, title: "15%達成：リフレッシュのお茶を淹れる☕️" },
+            { ratio: 0.30, title: "30%達成：お気に入りのスイーツ解禁🍰" },
+            { ratio: 0.50, title: "50%達成：折り返し！ちょっと長めにお昼寝・休憩💤" },
+            { ratio: 0.75, title: "75%達成：週末の楽しみを予約しちゃう🎁" },
+            { ratio: 1.00, title: "100%コンプリート：定時退勤＆自由時間！🎉" }
+        ];
+
+        let config = { ...DEFAULT_CONFIG };
+        let currentChars = 0;
+        let todayStartChars = 0; // Dynamic tracking for today's pace
+
+        window.onload = function() {
+            loadStorage();
+            updateUI();
+            lucide.createIcons();
+        };
+
+        function loadStorage() {
+            const savedConfig = localStorage.getItem('syoken_ultra_config');
+            if (savedConfig) config = JSON.parse(savedConfig);
+
+            const savedChars = localStorage.getItem('syoken_ultra_chars');
+            if (savedChars !== null) currentChars = parseInt(savedChars) || 0;
+
+            const savedTodayStart = localStorage.getItem('syoken_ultra_today_start');
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const savedDate = localStorage.getItem('syoken_ultra_today_date');
+
+            if (savedDate === todayStr && savedTodayStart !== null) {
+                todayStartChars = parseInt(savedTodayStart) || 0;
+            } else {
+                // First open today -> lock current chars as start of day baseline
+                todayStartChars = currentChars;
+                localStorage.setItem('syoken_ultra_today_start', todayStartChars);
+                localStorage.setItem('syoken_ultra_today_date', todayStr);
+            }
+
+            document.getElementById('currentInputCount').value = currentChars || '';
+            document.getElementById('settingStudentCount').value = config.studentCount;
+            document.getElementById('settingTargetPerStudent').value = config.targetPerStudent;
+            document.getElementById('settingDeadline').value = config.deadline;
+        }
+
+        function saveStorage() {
+            localStorage.setItem('syoken_ultra_config', JSON.stringify(config));
+            localStorage.setItem('syoken_ultra_chars', currentChars);
+        }
+
+        function onInputChanged() {
+            const val = parseInt(document.getElementById('currentInputCount').value) || 0;
+            currentChars = val;
+            saveStorage();
+            updateUI();
+        }
+
+        function updateUI() {
+            const totalTarget = config.studentCount * config.targetPerStudent;
+            const remainingTotal = Math.max(0, totalTarget - currentChars);
+            const progressRatio = Math.min(1.0, currentTotalRatio(currentChars, totalTarget));
+            const progressPercent = Math.round(progressRatio * 1000) / 10;
+
+            // Compute Weekdays (exclude Sat/Sun)
+            const remainingWeekdays = calculateRemainingWeekdays(new Date(), new Date(config.deadline));
+            const dailyQuota = remainingWeekdays > 0 ? Math.ceil(remainingTotal / remainingWeekdays) : remainingTotal;
+            const dailyStudents = (dailyQuota / config.targetPerStudent).toFixed(1);
+
+            // Today's done characters since opening app today
+            const doneToday = Math.max(0, currentChars - todayStartChars);
+            const neededToday = Math.max(0, dailyQuota - doneToday);
+
+            // Update Remaining & Progress UI
+            document.getElementById('remainingCharsCount').textContent = remainingTotal.toLocaleString();
+            document.getElementById('progressCharsDetail').textContent = `${currentChars.toLocaleString()} / ${totalTarget.toLocaleString()} 字`;
+            document.getElementById('progressPercentDetail').textContent = `${progressPercent}%`;
+            document.getElementById('progressBar').style.width = `${progressPercent}%`;
+
+            // Update Weekday & Today Pace
+            document.getElementById('weekdayCountText').textContent = `平日 あと ${remainingWeekdays} 日`;
+            document.getElementById('dailyQuotaText').textContent = `1日あたりの目標: ${dailyQuota.toLocaleString()} 文字 (約${dailyStudents}人分)`;
+
+            const todayPaceEl = document.getElementById('todayPaceTargetText');
+            if (remainingTotal === 0) {
+                todayPaceEl.innerHTML = `全件達成！お疲れ様でした！🎉`;
+                triggerConfettiOnce();
+            } else if (neededToday === 0) {
+                todayPaceEl.innerHTML = `本日の目標クリア！お見事です！✨`;
+            } else {
+                todayPaceEl.innerHTML = `今日はあと <span class="text-amber-300 text-3xl font-black">${neededToday.toLocaleString()}</span> 文字！`;
+            }
+
+            // Update Rank Badge
+            let currentRank = RANKS[0];
+            RANKS.forEach(r => {
+                if (progressRatio >= r.thresholdRatio) currentRank = r;
+            });
+            document.getElementById('rankBadgeText').textContent = `称号: ${currentRank.title}`;
+
+            // Update Reward Milestone
+            let nextReward = REWARDS.find(r => currentChars < (totalTarget * r.ratio));
+            if (nextReward) {
+                const targetChar = Math.round(totalTarget * nextReward.ratio);
+                const leftChar = targetChar - currentChars;
+                document.getElementById('nextRewardTitle').textContent = nextReward.title;
+                document.getElementById('nextRewardCountdown').textContent = `あと ${leftChar.toLocaleString()} 字`;
+            } else {
+                document.getElementById('nextRewardTitle').textContent = `全ごほうび解禁！定時退勤しよう！`;
+                document.getElementById('nextRewardCountdown').textContent = `完了`;
+            }
+        }
+
+        function currentTotalRatio(curr, target) {
+            return target > 0 ? curr / target : 0;
+        }
+
+        function calculateRemainingWeekdays(startDate, endDate) {
+            let count = 0;
+            let cur = new Date(startDate);
+            cur.setHours(0, 0, 0, 0);
+            const target = new Date(endDate);
+            target.setHours(0, 0, 0, 0);
+
+            while (cur <= target) {
+                const day = cur.getDay();
+                if (day !== 0 && day !== 6) count++;
+                cur.setDate(cur.getDate() + 1);
+            }
+            return count;
+        }
+
+        let celebrated = false;
+        function triggerConfettiOnce() {
+            if (!celebrated && typeof confetti === 'function') {
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                celebrated = true;
+            }
+        }
+
+        function openSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function saveSettings() {
+            const count = parseInt(document.getElementById('settingStudentCount').value) || 20;
+            const target = parseInt(document.getElementById('settingTargetPerStudent').value) || 250;
+            const deadline = document.getElementById('settingDeadline').value || '2026-11-30';
+
+            config.studentCount = count;
+            config.targetPerStudent = target;
+            config.deadline = deadline;
+
+            saveStorage();
+            updateUI();
+            closeSettingsModal();
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+    </script>
+</body>
+</html>
